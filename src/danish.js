@@ -7,11 +7,7 @@
 'use strict';
 
 import events from 'backbone';
-import $ from 'jquery';
-// import 'corejs-typeahead/dist/typeahead.jquery.js';
-import './typeahead.jquery.js';
-import { registerTypeahead } from './typeahead.jquery.js';
-registerTypeahead($);
+import Autocomplete from './autocomplete.js';
 
 /**
  *
@@ -87,7 +83,7 @@ let getPlaceStore = () => {
         },
         styleMap: {
             weight: 3,
-            color: advanced ? $("#search-colorpicker-input").val() : "#C31919",
+            color: advanced ? document.getElementById("search-colorpicker-input").value : "#C31919",
             dashArray: '',
             Opacity: 1,
             fillOpacity: 0
@@ -114,7 +110,7 @@ function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller)
         for (const property in placeStores) {
             placeStores[property].reset();
         }
-        $(".typeahead").val("");
+        document.querySelectorAll(".typeahead").forEach(el => el.value = "");
     });
 
 
@@ -122,7 +118,7 @@ function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller)
         if (typeof komKode === "string") {
             komKode = [komKode];
         }
-        $.each(komKode, function (i, v) {
+        komKode.forEach(function (v, i) {
             shouldA.push({
                 "term": {
                     "properties.kommunekode": "0" + v
@@ -506,35 +502,37 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                         break;
                 }
 
-                $.ajax({
-                    url: AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view',
-                    data: JSON.stringify(dsl1),
-                    contentType: "application/json; charset=utf-8",
-                    scriptCharset: "utf-8",
-                    dataType: 'json',
-                    type: "POST",
-                    success: function (response) {
+                fetch(AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8'
+                    },
+                    body: JSON.stringify(dsl1)
+                })
+                    .then(response => response.json())
+                    .then(response => {
                         if (response.hits === undefined) return;
                         if (type1 === "vejnavn,bynavn") {
                             if (response.aggregations === undefined) return;
                             if (response.aggregations["properties.postnrnavn"] === undefined) return;
-                            $.each(response.aggregations["properties.postnrnavn"].buckets, function (i, hit) {
+                            response.aggregations["properties.postnrnavn"].buckets.forEach(function (hit) {
                                 var str = hit.key;
                                 names.push({value: str});
                             });
-                            $.ajax({
-                                url: AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view',
-                                data: JSON.stringify(dsl2),
-                                contentType: "application/json; charset=utf-8",
-                                scriptCharset: "utf-8",
-                                dataType: 'json',
-                                type: "POST",
-                                success: function (response) {
+                            fetch(AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json; charset=utf-8'
+                                },
+                                body: JSON.stringify(dsl2)
+                            })
+                                .then(response => response.json())
+                                .then(response => {
                                     if (response.hits === undefined) return;
                                     if (type1 === "vejnavn,bynavn") {
                                         if (response.aggregations === undefined) return;
                                         if (response.aggregations["properties.vejnavn"] === undefined) return;
-                                        $.each(response.aggregations["properties.vejnavn"].buckets, function (i, hit) {
+                                        response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
                                             var str = hit.key;
                                             names.push({value: str});
                                         });
@@ -549,14 +547,13 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                                         cb(names);
                                     }
 
-                                }
-                            })
+                                })
                         } else if (type1 === "vejnavn_bynavn") {
                             if (response.aggregations === undefined) return;
                             if (response.aggregations["properties.vejnavn"] === undefined) return;
-                            $.each(response.aggregations["properties.vejnavn"].buckets, function (i, hit) {
+                            response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
                                 var str = hit.key;
-                                $.each(hit["properties.postnrnavn"].buckets, function (m, n) {
+                                hit["properties.postnrnavn"].buckets.forEach(function (n) {
                                     var tmp = str;
                                     tmp = tmp + ", " + n.key;
                                     names.push({value: tmp});
@@ -573,7 +570,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             }
 
                         } else if (type1 === "adresse") {
-                            $.each(response.hits.hits, function (i, hit) {
+                            response.hits.hits.forEach(function (hit) {
                                 var str = hit._source.properties.string4;
                                 gids[type1][str] = hit._source.properties.gid;
                                 names.push({value: str});
@@ -588,8 +585,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             }
                         }
 
-                    }
-                })
+                    })
             })();
         }
     }, {
@@ -689,24 +685,25 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             break;
                     }
 
-                    $.ajax({
-                        url: MHOST + '/api/v2/elasticsearch/search/' + MDB + '/matrikel/jordstykke_view',
-                        data: JSON.stringify(dslM),
-                        contentType: "application/json; charset=utf-8",
-                        scriptCharset: "utf-8",
-                        dataType: 'json',
-                        type: "POST",
-                        success: function (response) {
+                    fetch(MHOST + '/api/v2/elasticsearch/search/' + MDB + '/matrikel/jordstykke_view', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json; charset=utf-8'
+                        },
+                        body: JSON.stringify(dslM)
+                    })
+                        .then(response => response.json())
+                        .then(response => {
                             if (response.hits === undefined) return;
                             if (type2 === "ejerlav") {
                                 if (response.aggregations === undefined) return;
                                 if (response.aggregations["properties.ejerlavsnavn"] === undefined) return;
-                                $.each(response.aggregations["properties.ejerlavsnavn"].buckets, function (i, hit) {
+                                response.aggregations["properties.ejerlavsnavn"].buckets.forEach(function (hit) {
                                     var str = hit.key;
                                     names.push({value: str});
                                 });
                             } else {
-                                $.each(response.hits.hits, function (i, hit) {
+                                response.hits.hits.forEach(function (hit) {
                                     var str = hit._source.properties.string1;
                                     gids[type2][str] = hit._source.properties.gid;
                                     names.push({value: str});
@@ -721,21 +718,22 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                                 cb(names);
                             }
 
-                        }
-                    })
+                        })
                 })();
             }
         }
     }];
 
     fromVarsIsDone = true;
-    $(el).typeahead({
+    const ac = new Autocomplete(el, {
         highlight: false,
         hint: false,
     }, ...standardSearches);
 
     const extraSearchesNames = [];
-    $(el).bind('typeahead:selected', function (obj, datum, name) {
+    const inputEl = typeof el === 'string' ? document.querySelector(el) : el;
+    inputEl.addEventListener('typeahead:selected', function (event) {
+        const { datum, name } = event.detail;
         if ((type1 === "adresse" && name === "adresse") || (type2 === "jordstykke" && name === "matrikel")
             || (type3 === "esr_nr" && name === "esr_ejdnr") || (type4 === "sfe_nr" && name === "sfe_ejdnr")
             || extraSearchesNames.indexOf(name) !== -1
@@ -812,7 +810,9 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
             }
         } else {
             setTimeout(function () {
-                $(el).val(datum.value + " ").trigger("paste").trigger("input");
+                inputEl.value = datum.value + " ";
+                inputEl.dispatchEvent(new Event("paste"));
+                inputEl.dispatchEvent(new Event("input"));
             }, 100)
         }
     });
