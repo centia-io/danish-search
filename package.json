@@ -1,8 +1,22 @@
 {
-  "name": "search",
-  "private": true,
-  "version": "0.0.0",
+  "name": "@centia-io/danish",
+  "version": "0.0.1",
+  "description": "Danish address and cadastral search",
+  "author": "Martin Høgh",
+  "license": "MIT",
   "type": "module",
+  "main": "./dist/danish.cjs",
+  "module": "./dist/danish.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/danish.mjs",
+      "require": "./dist/danish.cjs"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
