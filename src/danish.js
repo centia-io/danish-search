@@ -22,6 +22,47 @@ function markHouseNumber(input) {
 }
 
 /**
+ * When a query contains a comma (street, city) and the house number appears
+ * after the comma, move it to the street part so it matches the string4
+ * format: "Street Nr, Postnr City".
+ *
+ * Examples:
+ *   "Frederiksberg Alle, Frederiksberg 35"       → "Frederiksberg Alle 35, Frederiksberg"
+ *   "Frederiksberg Alle, 2000 Frederiksberg 35"  → "Frederiksberg Alle 35, 2000 Frederiksberg"
+ *   "Frederiksberg Alle 35, 2000 Frederiksberg"  → unchanged (already correct)
+ */
+function normalizeAddressQuery(query) {
+    const commaIdx = query.indexOf(',');
+    if (commaIdx === -1) return query;
+
+    const beforeComma = query.substring(0, commaIdx).trim();
+    const afterComma = query.substring(commaIdx + 1).trim();
+
+    // If street part already has a house number, leave it alone
+    const streetNumbers = beforeComma.match(/\b(\d+\w?)\b/g);
+    if (streetNumbers && streetNumbers.some(n => !/^\d{4}$/.test(n))) return query;
+
+    // Find house number token after comma (skip 4-digit postcodes)
+    const tokens = afterComma.split(/\s+/);
+    const houseIdx = tokens.findIndex(t => /^\d+\w?$/.test(t) && !/^\d{4}$/.test(t));
+    if (houseIdx === -1) return query;
+
+    const houseNumber = tokens[houseIdx];
+    tokens.splice(houseIdx, 1);
+
+    return beforeComma + ' ' + houseNumber + (tokens.length ? ', ' + tokens.join(' ') : '');
+}
+
+/**
+ * Check if a query contains non-postcode digits.
+ */
+function hasHouseNumber(query) {
+    const matches = query.match(/\b(\d+\w?)\b/g);
+    if (!matches) return false;
+    return matches.some(m => !/^\d{4}$/.test(m));
+}
+
+/**
  * Danish address and cadastral search component.
  *
  * Dispatches a 'search:select' CustomEvent on the input element when a final
@@ -82,15 +123,21 @@ function danish(options = {}) {
             header: '<h2 class="typeahead-heading">Adresser</h2>'
         },
         source: function (query, cb) {
-            if (query.match(/\d+/g) === null && query.match(/\s+/g) === null) {
+            const hasComma = query.indexOf(',') !== -1;
+            const hasDigits = query.match(/\d+/g) !== null;
+            const hasSpaces = query.match(/\s+/g) !== null;
+
+            if (hasComma || hasDigits) {
+                // Comma means user has specified street+city (e.g. from cascade
+                // or manual input) — go straight to address-level results.
+                // Digits means house number or postcode — also address-level.
+                type1 = "adresse";
+            } else if (hasSpaces) {
+                type1 = "vejnavn_bynavn";
+            } else {
                 type1 = "vejnavn,bynavn";
             }
-            if (query.match(/\d+/g) === null && query.match(/\s+/g) !== null) {
-                type1 = "vejnavn_bynavn";
-            }
-            if (query.match(/\d+/g) !== null) {
-                type1 = "adresse";
-            }
+
             let names = [];
             (function ca() {
                 let scriptTpl = `
@@ -172,7 +219,7 @@ else if (normalizedDoc.startsWith(normalizedQuery)) {
 return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B houseBonus;
                         `;
 
-                let safeQuery = query;
+                let safeQuery = hasComma ? normalizeAddressQuery(query) : query;
                 switch (type1) {
                     case "vejnavn,bynavn":
                         gids[type1] = [];
