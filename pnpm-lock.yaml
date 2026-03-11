@@ -7,22 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      backbone:
-        specifier: ^1.6.1
-        version: 1.6.1
-      bootstrap:
-        specifier: ^5.3.8
-        version: 5.3.8(@popperjs/core@2.11.8)
-      corejs-typeahead:
-        specifier: ^1.3.4
-        version: 1.3.4
-      jquery:
-        specifier: ^3.7.1
-        version: 3.7.1
-      typeahead.js:
-        specifier: ^0.11.1
-        version: 0.11.1
     devDependencies:
       vite:
         specifier: ^7.2.4
@@ -186,9 +170,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@popperjs/core@2.11.8':
-    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
-
   '@rollup/rollup-android-arm-eabi@4.53.5':
     resolution: {integrity: sha512-iDGS/h7D8t7tvZ1t6+WPK04KD0MwzLZrG0se1hzBjSi5fyxlsiggoJHwh18PCFNn7tG43OWb6pdZ6Y+rMlmyNQ==}
     cpu: [arm]
@@ -302,17 +283,6 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  backbone@1.6.1:
-    resolution: {integrity: sha512-YQzWxOrIgL6BoFnZjThVN99smKYhyEXXFyJJ2lsF1wJLyo4t+QjmkLrH8/fN22FZ4ykF70Xq7PgTugJVR4zS9Q==}
-
-  bootstrap@5.3.8:
-    resolution: {integrity: sha512-HP1SZDqaLDPwsNiqRqi5NcP0SSXciX2s9E+RyqJIIqGo+vJeN5AJVM98CXmW/Wux0nQ5L7jeWUdplCEf0Ee+tg==}
-    peerDependencies:
-      '@popperjs/core': ^2.11.8
-
-  corejs-typeahead@1.3.4:
-    resolution: {integrity: sha512-4SAc1UWszc05IyG9te1JHSeLas5WUWKmKAB8m9E6AAmHCpYhdSaySkblVSIUwQG2FR5uAsaeHbKM+pkEP7SiNw==}
-
   esbuild@0.27.1:
     resolution: {integrity: sha512-yY35KZckJJuVVPXpvjgxiCuVEJT67F6zDeVTv4rizyPrfGBUpZQsvmxnN+C371c2esD/hNMjj4tpBhuueLN7aA==}
     engines: {node: '>=18'}
@@ -331,9 +301,6 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
-
-  jquery@3.7.1:
-    resolution: {integrity: sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==}
 
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
@@ -363,12 +330,6 @@ packages:
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
     engines: {node: '>=12.0.0'}
-
-  typeahead.js@0.11.1:
-    resolution: {integrity: sha512-yGaLzGjVHyryZdNfrWz2NHXUwEO7hrlVmGMGCo5+6mH3nEEhcQ0Te3mK3G60uRnxfERu8twOWSU4WmwScbwhMg==}
-
-  underscore@1.13.7:
-    resolution: {integrity: sha512-GMXzWtsc57XAtguZgaQViUOzs0KTkk8ojr3/xAxXLITqf/3EMwxC0inyETfDFjH/Krbhuep0HNbbjI9i/q3F3g==}
 
   vite@7.3.0:
     resolution: {integrity: sha512-dZwN5L1VlUBewiP6H9s2+B3e3Jg96D0vzN+Ry73sOefebhYr9f94wwkMNN/9ouoU8pV1BqA1d1zGk8928cx0rg==}
@@ -490,8 +451,6 @@ snapshots:
   '@esbuild/win32-x64@0.27.1':
     optional: true
 
-  '@popperjs/core@2.11.8': {}
-
   '@rollup/rollup-android-arm-eabi@4.53.5':
     optional: true
 
@@ -560,18 +519,6 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  backbone@1.6.1:
-    dependencies:
-      underscore: 1.13.7
-
-  bootstrap@5.3.8(@popperjs/core@2.11.8):
-    dependencies:
-      '@popperjs/core': 2.11.8
-
-  corejs-typeahead@1.3.4:
-    dependencies:
-      jquery: 3.7.1
-
   esbuild@0.27.1:
     optionalDependencies:
       '@esbuild/aix-ppc64': 0.27.1
@@ -607,8 +554,6 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
-
-  jquery@3.7.1: {}
 
   nanoid@3.3.11: {}
 
@@ -656,12 +601,6 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
-
-  typeahead.js@0.11.1:
-    dependencies:
-      jquery: 3.7.1
-
-  underscore@1.13.7: {}
 
   vite@7.3.0:
     dependencies:

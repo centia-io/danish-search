@@ -6,46 +6,16 @@
 
 'use strict';
 
-import events from 'backbone';
 import Autocomplete from './autocomplete.js';
 
-/**
- *
- * @type {*|exports|module.exports}
- */
-var cloud;
-
-/**
- * @type {*|exports|module.exports}
- */
-var backboneEvents;
-
-var draw;
-
-/**
- *
- * @type {string}
- */
 //const AHOST = "http://127.0.0.1:8080";
 const AHOST = "https://dk.gc2.io";
 
-/**
- *
- * @type {string}
- */
 //const ADB = "mydb";
 const ADB = "dk";
 
-/**
- *
- * @type {string}
- */
 const MHOST = "https://dk.gc2.io";
 
-/**
- *
- * @type {string}
- */
 const MDB = "dk";
 
 let fromVarsIsDone = false;
@@ -94,25 +64,12 @@ let getPlaceStore = () => {
 
 
 function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller) {
-    var type1, type2, type3, type4, gids = {}, searchString, dslM, shouldA = [], shouldM = [], dsl1, dsl2,
+    let type1, type2, type3, type4, gids = {}, searchString, dslM, shouldA = [], shouldM = [], dsl1, dsl2,
         komKode = '*', placeStores = {}, maxZoom, searchTxt,
         esrSearchActive = false,
         sfeSearchActive = false,
         advanced = false,
         size = 20;
-
-
-    // Listen for clearing event
-    // =========================
-
-    events.on("clear:search", function () {
-        console.info("Clearing search");
-        for (const property in placeStores) {
-            placeStores[property].reset();
-        }
-        document.querySelectorAll(".typeahead").forEach(el => el.value = "");
-    });
-
 
     if (komKode !== "*") {
         if (typeof komKode === "string") {
@@ -131,6 +88,7 @@ function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller)
             });
         });
     }
+
     let standardSearches = [{
         name: 'adresse',
         displayKey: 'value',
@@ -788,6 +746,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                     // placeStores[key].db = ADB;
                     // placeStores[key].host = AHOST;
                     let sql;
+                    // TODO getCadastral
                     if (getProperty) {
                         sql = "SELECT sfe_ejendomsnummer,ST_Multi(ST_Union(the_geom)),ST_asgeojson(ST_transform(ST_Multi(ST_Union(the_geom)),4326)) as geojson FROM matrikel.jordstykke WHERE sfe_ejendomsnummer = (SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE (the_geom && (SELECT ST_transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id='" + gids[type1][datum.value] + "')) AND ST_Intersects(the_geom, (SELECT ST_transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id='" + gids[type1][datum.value] + "'))) group by sfe_ejendomsnummer";
                     } else {

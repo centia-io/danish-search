@@ -10,9 +10,5 @@
   },
   "devDependencies": {
     "vite": "^7.2.4"
-  },
-  "dependencies": {
-    "backbone": "^1.6.1",
-    "bootstrap": "^5.3.8"
   }
 }
