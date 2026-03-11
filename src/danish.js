@@ -8,22 +8,11 @@
 
 import Autocomplete from './autocomplete.js';
 
-//const AHOST = "http://127.0.0.1:8080";
-const AHOST = "https://dk.gc2.io";
-
-//const ADB = "mydb";
-const ADB = "dk";
-
-const MHOST = "https://dk.gc2.io";
-
-const MDB = "dk";
-
-let fromVarsIsDone = false;
-
+const DEFAULT_HOST = "https://dk.gc2.io";
+const DEFAULT_DB = "dk";
 
 function markHouseNumber(input) {
     return input.replace(/\b(\d+\w?)\b/, function (match) {
-        // If the token is exactly 4 digits, assume it’s a zip code and leave it unaltered.
         if (/^\d{4}$/.test(match)) {
             return match;
         } else {
@@ -32,50 +21,46 @@ function markHouseNumber(input) {
     });
 }
 
-let getPlaceStore = () => {
-    return new geocloud.sqlStore({
-        jsonp: false,
-        method: "POST",
-        dataType: "json",
-        sql: null,
-        clickable: true,
-        // Make Awesome Markers
-        pointToLayer: function (feature, latlng) {
-            return L.marker(latlng, {
-                icon: L.AwesomeMarkers.icon(iconOptions
-                )
-            });
-        },
-        onEachFeature: function (feature, layer) {
-            layer._vidi_type = "query_draw";
-            layer._vidi_marker = true;
-            layer._vidi_awesomemarkers = iconOptions;
-        },
-        styleMap: {
-            weight: 3,
-            color: advanced ? document.getElementById("search-colorpicker-input").value : "#C31919",
-            dashArray: '',
-            Opacity: 1,
-            fillOpacity: 0
-        },
-        onLoad: onLoad
-    });
-}
+/**
+ * Danish address and cadastral search component.
+ *
+ * Dispatches a 'search:select' CustomEvent on the input element when a final
+ * result is selected. The event detail contains:
+ *   { type: 'adresse'|'matrikel', gid: string, value: string, searchType: string }
+ *
+ * Intermediate selections (street name, city, ejerlav) automatically narrow
+ * the search — no event is fired until a concrete address or jordstykke is picked.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.el=".custom-search"] - CSS selector for the input element
+ * @param {string} [options.host] - GC2 host URL
+ * @param {string} [options.db] - GC2 database name
+ * @param {boolean} [options.onlyAddress=false] - Only show address results (no matrikel)
+ * @param {string|string[]} [options.komKode="*"] - Municipality code filter ("*" = all)
+ * @param {number} [options.size=20] - Max number of results per query
+ * @param {function} [options.onSelect] - Callback: ({type, gid, value, searchType}) => void
+ * @returns {HTMLElement} The input element (for chaining event listeners)
+ */
+function danish(options = {}) {
+    const {
+        el = ".custom-search",
+        host = DEFAULT_HOST,
+        db = DEFAULT_DB,
+        onlyAddress = false,
+        onSelect,
+        size = 20,
+    } = options;
 
+    let komKode = options.komKode || '*';
+    let type1, type2, gids = {}, dslM, shouldA = [], shouldM = [], dsl1, dsl2;
 
-function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller) {
-    let type1, type2, type3, type4, gids = {}, searchString, dslM, shouldA = [], shouldM = [], dsl1, dsl2,
-        komKode = '*', placeStores = {}, maxZoom, searchTxt,
-        esrSearchActive = false,
-        sfeSearchActive = false,
-        advanced = false,
-        size = 20;
+    const esUrl = host + '/api/v2/elasticsearch/search/' + db;
 
     if (komKode !== "*") {
         if (typeof komKode === "string") {
             komKode = [komKode];
         }
-        komKode.forEach(function (v, i) {
+        komKode.forEach(function (v) {
             shouldA.push({
                 "term": {
                     "properties.kommunekode": "0" + v
@@ -112,19 +97,12 @@ function danish(onLoad, el = ".custom-search", onlyAddress, getProperty, caller)
 def docval = params['_source']['properties'][params.fieldName].toLowerCase();
 def path   = params.userQuery.toLowerCase();
 int idx = docval.indexOf(path);
-// if (idx == -1) {
-//     return 0.0;
-// }
 float baseScore = 1.0f;
 float boundaryBonus = 0.0f;
 float letterSuffixBonus = 0.0f;
 float prefixBonus = 0.0f;
 float houseBonus = 0.0f;
 
-
-// Assume that we have pre-marked the house number in the query string 
-// by surrounding it with underscores. For example: "Peter Bangs Vej _6d_, 2000 Frederiksberg"
-// Extract the house token from the query.
 String houseToken = "";
 int firstUnderscore = path.indexOf("_");
 int lastUnderscore = path.lastIndexOf("_");
@@ -132,8 +110,6 @@ if (firstUnderscore != -1 && lastUnderscore > firstUnderscore) {
   houseToken = path.substring(firstUnderscore %2B 1, lastUnderscore);
 }
 
-// Now, manually split the document text into tokens.
-// (Since we can’t use split(), we do it manually.)
 if (houseToken != "") {
   List tokens = new ArrayList();
   int start = 0;
@@ -146,20 +122,16 @@ if (houseToken != "") {
     tokens.add(docval.substring(start, pos));
     start = pos %2B 1;
   }
-  
-  // If any token equals the houseToken exactly, add the bonus.
   for (int i = 0; i < tokens.size(); i%2B%2B) {
     if (tokens.get(i).replace(",", "").equals(houseToken)) {
-      houseBonus = 0.5f;  // Adjust the bonus as needed.
+      houseBonus = 0.5f;
       break;
     }
   }
 }
 
-// Reset path to remove the house token.
 path = path.replace("_", "");
 
-// Create normalized versions (remove commas and trim extra spaces)
 def normalizedDoc = docval.replace(",", "").trim();
 def normalizedQuery = path.replace(",", "").trim();
 
@@ -170,7 +142,7 @@ if (endPos >= docval.length()) {
     char nextChar = docval.charAt(endPos);
     if (!Character.isLetterOrDigit(nextChar)) {
         boundaryBonus = 1.0f;
-    } 
+    }
     else {
         if (path.length() > 0 && Character.isDigit(path.charAt(path.length() - 1))) {
             if (Character.isLetter(nextChar)) {
@@ -180,29 +152,25 @@ if (endPos >= docval.length()) {
     }
 }
 if (docval.startsWith(path)) {
-    prefixBonus = 3.0f; // give a large bonus if doc text starts with the entire query
+    prefixBonus = 3.0f;
 } else {
-    // Else, maybe do the partial check for N characters
     int N = 3;
     if (docval.length() >= N && path.length() >= N) {
         if (docval.regionMatches(true, 0, path, 0, N)) {
-            prefixBonus = 2.0f; // smaller bonus for partial match
+            prefixBonus = 2.0f;
         }
     }
 }
 
-// If the normalized doc equals the normalized query, award a high bonus
 if (normalizedDoc.equals(normalizedQuery)) {
     prefixBonus = 5.0f;
 }
-// Else if the normalized doc starts with the normalized query, award a moderate bonus
 else if (normalizedDoc.startsWith(normalizedQuery)) {
     prefixBonus = 10.0f;
 }
 
 return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B houseBonus;
                         `;
-
 
                 let safeQuery = query;
                 switch (type1) {
@@ -460,7 +428,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                         break;
                 }
 
-                fetch(AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view', {
+                fetch(esUrl + '/dar/adgangsadresser_view', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json; charset=utf-8'
@@ -474,10 +442,9 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             if (response.aggregations === undefined) return;
                             if (response.aggregations["properties.postnrnavn"] === undefined) return;
                             response.aggregations["properties.postnrnavn"].buckets.forEach(function (hit) {
-                                var str = hit.key;
-                                names.push({value: str});
+                                names.push({value: hit.key});
                             });
-                            fetch(AHOST + '/api/v2/elasticsearch/search/' + ADB + '/dar/adgangsadresser_view', {
+                            fetch(esUrl + '/dar/adgangsadresser_view', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json; charset=utf-8'
@@ -491,8 +458,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                                         if (response.aggregations === undefined) return;
                                         if (response.aggregations["properties.vejnavn"] === undefined) return;
                                         response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
-                                            var str = hit.key;
-                                            names.push({value: str});
+                                            names.push({value: hit.key});
                                         });
                                     }
                                     if (names.length === 1 && (type1 === "vejnavn,bynavn" || type1 === "vejnavn_bynavn")) {
@@ -501,7 +467,6 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                                         gids[type1] = [];
                                         ca();
                                     } else {
-                                        console.log(names);
                                         cb(names);
                                     }
 
@@ -512,11 +477,8 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
                                 var str = hit.key;
                                 hit["properties.postnrnavn"].buckets.forEach(function (n) {
-                                    var tmp = str;
-                                    tmp = tmp + ", " + n.key;
-                                    names.push({value: tmp});
+                                    names.push({value: str + ", " + n.key});
                                 });
-
                             });
                             if (names.length === 1 && (type1 === "vejnavn,bynavn" || type1 === "vejnavn_bynavn")) {
                                 type1 = "adresse";
@@ -643,7 +605,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                             break;
                     }
 
-                    fetch(MHOST + '/api/v2/elasticsearch/search/' + MDB + '/matrikel/jordstykke_view', {
+                    fetch(esUrl + '/matrikel/jordstykke_view', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json; charset=utf-8'
@@ -657,8 +619,7 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
                                 if (response.aggregations === undefined) return;
                                 if (response.aggregations["properties.ejerlavsnavn"] === undefined) return;
                                 response.aggregations["properties.ejerlavsnavn"].buckets.forEach(function (hit) {
-                                    var str = hit.key;
-                                    names.push({value: str});
+                                    names.push({value: hit.key});
                                 });
                             } else {
                                 response.hits.hits.forEach(function (hit) {
@@ -682,99 +643,46 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
         }
     }];
 
-    fromVarsIsDone = true;
     const ac = new Autocomplete(el, {
         highlight: false,
         hint: false,
     }, ...standardSearches);
 
-    const extraSearchesNames = [];
     const inputEl = typeof el === 'string' ? document.querySelector(el) : el;
+
     inputEl.addEventListener('typeahead:selected', function (event) {
-        const { datum, name } = event.detail;
-        if ((type1 === "adresse" && name === "adresse") || (type2 === "jordstykke" && name === "matrikel")
-            || (type3 === "esr_nr" && name === "esr_ejdnr") || (type4 === "sfe_nr" && name === "sfe_ejdnr")
-            || extraSearchesNames.indexOf(name) !== -1
-        ) {
-            let key;
-            if (advanced) {
-                key = datum.value;
-            } else {
-                key = "simple";
-                try {
-                    placeStores[key].reset();
-                } catch (e) {
-                }
-            }
-            searchString = datum.value;
-            switch (name) {
-                case "esr_ejdnr" :
-                    placeStores[key] = getPlaceStore();
-                    placeStores[key].db = MDB;
-                    placeStores[key].host = MHOST;
-                    if (advanced) {
-                        placeStores[key].sql = "SELECT esr_ejendomsnummer,matrikelnummer,ejerlavsnavn,the_geom FROM matrikel.jordstykke WHERE esr_ejendomsnummer = (SELECT esr_ejendomsnummer FROM matrikel.jordstykke WHERE gid=" + gids[type3][datum.value] + ")";
-                    } else {
-                        placeStores[key].sql = "SELECT esr_ejendomsnummer,ST_Multi(ST_Union(the_geom)),ST_asgeojson(ST_transform(ST_Multi(ST_Union(the_geom)),4326)) as geojson FROM matrikel.jordstykke WHERE esr_ejendomsnummer = (SELECT esr_ejendomsnummer FROM matrikel.jordstykke WHERE gid=" + gids[type3][datum.value] + ") group by esr_ejendomsnummer";
-                    }
-                    placeStores[key].load();
-                    break;
-                case "sfe_ejdnr" :
-                    placeStores[key] = getPlaceStore();
-                    placeStores[key].db = MDB;
-                    placeStores[key].host = MHOST;
-                    if (advanced) {
-                        placeStores[key].sql = "SELECT sfe_ejendomsnummer,matrikelnummer,ejerlavsnavn,the_geom FROM matrikel.jordstykke WHERE sfe_ejendomsnummer = (SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE gid=" + gids[type4][datum.value] + ")";
-                    } else {
-                        placeStores[key].sql = "SELECT sfe_ejendomsnummer,ST_Multi(ST_Union(the_geom)),ST_asgeojson(ST_transform(ST_Multi(ST_Union(the_geom)),4326)) as geojson FROM matrikel.jordstykke WHERE sfe_ejendomsnummer = (SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE gid=" + gids[type4][datum.value] + ") group by sfe_ejendomsnummer";
-                    }
-                    placeStores[key].load();
-                    break;
-                case "matrikel" :
-                    placeStores[key] = getPlaceStore();
-                    placeStores[key].db = MDB;
-                    placeStores[key].host = MHOST;
-                    if (getProperty) {
-                        placeStores[key].sql = "SELECT sfe_ejendomsnummer,ST_Multi(ST_Union(the_geom)),ST_asgeojson(ST_transform(ST_Multi(ST_Union(the_geom)),4326)) as geojson FROM matrikel.jordstykke WHERE sfe_ejendomsnummer = (SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE gid=" + gids[type2][datum.value] + ") group by sfe_ejendomsnummer";
-                    } else {
-                        placeStores[key].sql = "SELECT gid,the_geom,matrikelnummer,ejerlavsnavn, ST_asgeojson(ST_transform(the_geom,4326)) as geojson FROM matrikel.jordstykke WHERE gid='" + gids[type2][datum.value] + "'";
-                    }
-                    placeStores[key].load();
-                    break;
-                case "adresse" :
-                    // placeStores[key] = getPlaceStore();
-                    // placeStores[key].db = ADB;
-                    // placeStores[key].host = AHOST;
-                    let sql;
-                    // TODO getCadastral
-                    if (getProperty) {
-                        sql = "SELECT sfe_ejendomsnummer,ST_Multi(ST_Union(the_geom)),ST_asgeojson(ST_transform(ST_Multi(ST_Union(the_geom)),4326)) as geojson FROM matrikel.jordstykke WHERE sfe_ejendomsnummer = (SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE (the_geom && (SELECT ST_transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id='" + gids[type1][datum.value] + "')) AND ST_Intersects(the_geom, (SELECT ST_transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id='" + gids[type1][datum.value] + "'))) group by sfe_ejendomsnummer";
-                    } else {
-                        sql = "SELECT id,husnr,postnr,kommunekode,the_geom,ST_asgeojson(ST_transform(the_geom,4326)) as geojson FROM dar.adgangsadresser WHERE id='" + gids[type1][datum.value] + "'";
-                    }
-                    // placeStores[key].load();
-                    console.log(sql);
-                    break;
-                default: // Extra searches
-                    placeStores[key] = getPlaceStore();
-                    placeStores[key].db = extraSearchesObj[name].db;
-                    placeStores[key].host = extraSearchesObj[name]?.host || '';
-                    placeStores[key].zoom = extraSearchesObj[name]?.zoom || maxZoom;
-                    placeStores[key].sql = "SELECT *,ST_asgeojson(ST_transform(" + extraSearchesObj[name].relation.geom + ",4326)) as geojson FROM " + extraSearchesObj[name].relation.name + " WHERE " + extraSearchesObj[name].relation.key + "='" + gids[name][datum.value] + "'";
-                    if (!extraSearchesObj[name]?.host) {
-                        placeStores[key].uri = '/api/sql'
-                    }
-                    placeStores[key].load();
-                    break;
+        const {datum, name} = event.detail;
+
+        // Final selection: an actual address or jordstykke with a GID
+        if ((type1 === "adresse" && name === "adresse") || (type2 === "jordstykke" && name === "matrikel")) {
+            const resultType = name === "adresse" ? "adresse" : "matrikel";
+            const gid = name === "adresse" ? gids[type1][datum.value] : gids[type2][datum.value];
+
+            const detail = {
+                type: resultType,
+                gid: gid,
+                value: datum.value,
+                searchType: name === "adresse" ? type1 : type2,
+            };
+
+            // Dispatch event for external listeners
+            inputEl.dispatchEvent(new CustomEvent('search:select', {detail}));
+
+            // Call onSelect callback if provided
+            if (onSelect) {
+                onSelect(detail);
             }
         } else {
+            // Intermediate selection — narrow the search by injecting the value back
             setTimeout(function () {
                 inputEl.value = datum.value + " ";
                 inputEl.dispatchEvent(new Event("paste"));
                 inputEl.dispatchEvent(new Event("input"));
-            }, 100)
+            }, 100);
         }
     });
+
+    return inputEl;
 }
 
 export default danish;
