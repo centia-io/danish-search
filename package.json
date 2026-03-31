@@ -1,5 +1,5 @@
 {
-  "name": "@centia-io/danish",
+  "name": "@centia-io/danish-search",
   "version": "0.0.1",
   "description": "Danish address and cadastral search",
   "author": "Martin Høgh",
@@ -24,5 +24,8 @@
   },
   "devDependencies": {
     "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@centia-io/sdk": "0.0.50"
   }
 }

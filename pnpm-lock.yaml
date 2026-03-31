@@ -7,12 +7,19 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@centia-io/sdk':
+        specifier: 0.0.50
+        version: 0.0.50
     devDependencies:
       vite:
         specifier: ^7.2.4
         version: 7.3.0
 
 packages:
+
+  '@centia-io/sdk@0.0.50':
+    resolution: {integrity: sha512-BI7NMTH1NVEYPVB/oKkxPFkHgekRwNIVnyIRODA7+jRWxbMp9uJsOeE2uRSmOp1rb+alrlwkj8pH4iFVyF6Tkg==}
 
   '@esbuild/aix-ppc64@0.27.1':
     resolution: {integrity: sha512-HHB50pdsBX6k47S4u5g/CaLjqS3qwaOVE5ILsq64jyzgMhLuCuZ8rGzM9yhsAjfjkbgUPMzZEPa7DAp7yz6vuA==}
@@ -372,6 +379,8 @@ packages:
         optional: true
 
 snapshots:
+
+  '@centia-io/sdk@0.0.50': {}
 
   '@esbuild/aix-ppc64@0.27.1':
     optional: true

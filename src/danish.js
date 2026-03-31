@@ -7,8 +7,10 @@
 'use strict';
 
 import Autocomplete from './autocomplete.js';
+import {createCentiaClient, SqlNoToken} from '@centia-io/sdk';
 
 const DEFAULT_HOST = "https://dk.gc2.io";
+// const DEFAULT_HOST = "http://localhost:8080";
 const DEFAULT_DB = "dk";
 
 function markHouseNumber(input) {
@@ -96,6 +98,8 @@ function danish(options = {}) {
     let type1, type2, gids = {}, dslM, shouldA = [], shouldM = [], dsl1, dsl2;
 
     const esUrl = host + '/api/v2/elasticsearch/search/' + db;
+    const client = createCentiaClient({baseUrl: host});
+    const sql = new SqlNoToken(client);
 
     if (komKode !== "*") {
         if (typeof komKode === "string") {
@@ -154,7 +158,7 @@ String houseToken = "";
 int firstUnderscore = path.indexOf("_");
 int lastUnderscore = path.lastIndexOf("_");
 if (firstUnderscore != -1 && lastUnderscore > firstUnderscore) {
-  houseToken = path.substring(firstUnderscore %2B 1, lastUnderscore);
+  houseToken = path.substring(firstUnderscore + 1, lastUnderscore);
 }
 
 if (houseToken != "") {
@@ -167,9 +171,9 @@ if (houseToken != "") {
       break;
     }
     tokens.add(docval.substring(start, pos));
-    start = pos %2B 1;
+    start = pos + 1;
   }
-  for (int i = 0; i < tokens.size(); i%2B%2B) {
+  for (int i = 0; i < tokens.size(); i++) {
     if (tokens.get(i).replace(",", "").equals(houseToken)) {
       houseBonus = 0.5f;
       break;
@@ -182,7 +186,7 @@ path = path.replace("_", "");
 def normalizedDoc = docval.replace(",", "").trim();
 def normalizedQuery = path.replace(",", "").trim();
 
-int endPos = idx %2B path.length();
+int endPos = idx + path.length();
 if (endPos >= docval.length()) {
     boundaryBonus = 10.0f;
 } else {
@@ -216,7 +220,7 @@ else if (normalizedDoc.startsWith(normalizedQuery)) {
     prefixBonus = 10.0f;
 }
 
-return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B houseBonus;
+return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                         `;
 
                 let safeQuery = hasComma ? normalizeAddressQuery(query) : query;
@@ -697,6 +701,20 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
 
     const inputEl = typeof el === 'string' ? document.querySelector(el) : el;
 
+    /**
+     * Fetch the full GeoJSON feature from the database via Centia SDK.
+     */
+    async function fetchFeature(resultType, gid) {
+        const table = resultType === "adresse"
+            ? "dar.adgangsadresser_m_vejnavn"
+            : "matrikel.jordstykke";
+        return await sql.postSqlNoToken(db, {
+            q: `SELECT *
+                FROM ${table}
+                WHERE id = '${gid}'`, srs: 4326
+        });
+    }
+
     inputEl.addEventListener('typeahead:selected', function (event) {
         const {datum, name} = event.detail;
 
@@ -705,20 +723,23 @@ return baseScore %2B boundaryBonus %2B letterSuffixBonus %2B prefixBonus %2B hou
             const resultType = name === "adresse" ? "adresse" : "matrikel";
             const gid = name === "adresse" ? gids[type1][datum.value] : gids[type2][datum.value];
 
-            const detail = {
-                type: resultType,
-                gid: gid,
-                value: datum.value,
-                searchType: name === "adresse" ? type1 : type2,
-            };
+            fetchFeature(resultType, gid).then(feature => {
+                const detail = {
+                    type: resultType,
+                    gid: gid,
+                    value: datum.value,
+                    searchType: name === "adresse" ? type1 : type2,
+                    feature: feature,
+                };
 
-            // Dispatch event for external listeners
-            inputEl.dispatchEvent(new CustomEvent('search:select', {detail}));
+                // Dispatch event for external listeners
+                inputEl.dispatchEvent(new CustomEvent('search:select', {detail}));
 
-            // Call onSelect callback if provided
-            if (onSelect) {
-                onSelect(detail);
-            }
+                // Call onSelect callback if provided
+                if (onSelect) {
+                    onSelect(detail);
+                }
+            });
         } else {
             // Intermediate selection — narrow the search by injecting the value back
             setTimeout(function () {

@@ -12,7 +12,7 @@ document.querySelector('#app').innerHTML = `
 `
 
 const inputEl = danish({
-    onSelect({type, gid, value}) {
+    onSelect({type, gid, value, searchType, feature}) {
         document.getElementById('search-result').innerHTML =
             `<div class="result-item">
                 <strong>${type === 'adresse' ? 'Adresse' : 'Matrikel'}:</strong> ${value}<br>
