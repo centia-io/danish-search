@@ -13,6 +13,25 @@ const DEFAULT_HOST = "https://dk.gc2.io";
 // const DEFAULT_HOST = "http://localhost:8080";
 const DEFAULT_DB = "dk";
 
+// Build OR-variants so both "Alle" and "Allé" match regardless of what's indexed.
+// "Frederiksberg Alle" → "(Frederiksberg Alle) OR (Frederiksberg Allé)"
+function accentVariants(query) {
+    const folded = query.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const expanded = query.replace(/e(?=[\s,]|$)/gi, 'é');
+    const variants = [...new Set([query, folded, expanded])];
+    if (variants.length === 1) return query;
+    return variants.map(v => `(${v})`).join(' OR ');
+}
+
+// Sort aggregation results so entries starting with the query come first.
+function sortByPrefix(names, query) {
+    names.sort((a, b) => {
+        const aStarts = a.value.toLowerCase().startsWith(query) ? 0 : 1;
+        const bStarts = b.value.toLowerCase().startsWith(query) ? 0 : 1;
+        return aStarts - bStarts || a.value.localeCompare(b.value, 'da');
+    });
+}
+
 function markHouseNumber(input) {
     return input.replace(/\b(\d+\w?)\b/, function (match) {
         if (/^\d{4}$/.test(match)) {
@@ -127,16 +146,14 @@ function danish(options = {}) {
             header: '<h2 class="typeahead-heading">Adresser</h2>'
         },
         source: function (query, cb) {
+            query = query.trim().replace(/\s+/g, ' ').replace(/,\s*$/, '');
+            const rawQuery = query.toLowerCase();
             const hasComma = query.indexOf(',') !== -1;
-            const hasDigits = query.match(/\d+/g) !== null;
-            const hasSpaces = query.match(/\s+/g) !== null;
+            const hasSpaces = query.indexOf(' ') !== -1;
 
-            if (hasComma || hasDigits) {
-                // Comma means user has specified street+city (e.g. from cascade
-                // or manual input) — go straight to address-level results.
-                // Digits means house number or postcode — also address-level.
+            if (hasHouseNumber(query)) {
                 type1 = "adresse";
-            } else if (hasSpaces) {
+            } else if (hasComma || hasSpaces) {
                 type1 = "vejnavn_bynavn";
             } else {
                 type1 = "vejnavn,bynavn";
@@ -145,8 +162,8 @@ function danish(options = {}) {
             let names = [];
             (function ca() {
                 let scriptTpl = `
-def docval = params['_source']['properties'][params.fieldName].toLowerCase();
-def path   = params.userQuery.toLowerCase();
+def docval = params['_source']['properties'][params.fieldName].toLowerCase().replace('é', 'e').replace('ë', 'e').replace('è', 'e').replace('ê', 'e');
+def path   = params.userQuery.toLowerCase().replace('é', 'e').replace('ë', 'e').replace('è', 'e').replace('ê', 'e');
 int idx = docval.indexOf(path);
 float baseScore = 1.0f;
 float boundaryBonus = 0.0f;
@@ -223,7 +240,8 @@ else if (normalizedDoc.startsWith(normalizedQuery)) {
 return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                         `;
 
-                let safeQuery = hasComma ? normalizeAddressQuery(query) : query;
+                let safeQuery = accentVariants(hasComma ? normalizeAddressQuery(query) : query);
+                let scoreQuery = hasComma ? normalizeAddressQuery(rawQuery) : rawQuery;
                 switch (type1) {
                     case "vejnavn,bynavn":
                         gids[type1] = [];
@@ -256,7 +274,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                                     "source": scriptTpl,
                                                     "params": {
                                                         "fieldName": "string2",
-                                                        "userQuery": safeQuery
+                                                        "userQuery": scoreQuery
                                                     }
                                                 }
                                             }
@@ -326,7 +344,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                                     "source": scriptTpl,
                                                     "params": {
                                                         "fieldName": "string3",
-                                                        "userQuery": safeQuery
+                                                        "userQuery": scoreQuery
                                                     }
                                                 }
                                             }
@@ -391,7 +409,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                                     "source": scriptTpl,
                                                     "params": {
                                                         "fieldName": "string1",
-                                                        "userQuery": safeQuery
+                                                        "userQuery": scoreQuery
                                                     }
                                                 }
                                             }
@@ -463,7 +481,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                                     "source": scriptTpl,
                                                     "params": {
                                                         "fieldName": "string4",
-                                                        "userQuery": markHouseNumber(safeQuery)
+                                                        "userQuery": markHouseNumber(scoreQuery)
                                                     }
                                                 }
                                             }
@@ -488,10 +506,10 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                 })
                     .then(response => response.json())
                     .then(response => {
-                        if (response.hits === undefined) return;
+                        if (response.hits === undefined) { cb([]); return; }
                         if (type1 === "vejnavn,bynavn") {
-                            if (response.aggregations === undefined) return;
-                            if (response.aggregations["properties.postnrnavn"] === undefined) return;
+                            if (response.aggregations === undefined) { cb([]); return; }
+                            if (response.aggregations["properties.postnrnavn"] === undefined) { cb([]); return; }
                             response.aggregations["properties.postnrnavn"].buckets.forEach(function (hit) {
                                 names.push({value: hit.key});
                             });
@@ -504,10 +522,10 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                             })
                                 .then(response => response.json())
                                 .then(response => {
-                                    if (response.hits === undefined) return;
+                                    if (response.hits === undefined) { cb([]); return; }
                                     if (type1 === "vejnavn,bynavn") {
-                                        if (response.aggregations === undefined) return;
-                                        if (response.aggregations["properties.vejnavn"] === undefined) return;
+                                        if (response.aggregations === undefined) { cb([]); return; }
+                                        if (response.aggregations["properties.vejnavn"] === undefined) { cb([]); return; }
                                         response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
                                             names.push({value: hit.key});
                                         });
@@ -518,13 +536,14 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                         gids[type1] = [];
                                         ca();
                                     } else {
+                                        sortByPrefix(names, rawQuery);
                                         cb(names);
                                     }
 
                                 })
                         } else if (type1 === "vejnavn_bynavn") {
-                            if (response.aggregations === undefined) return;
-                            if (response.aggregations["properties.vejnavn"] === undefined) return;
+                            if (response.aggregations === undefined) { cb([]); return; }
+                            if (response.aggregations["properties.vejnavn"] === undefined) { cb([]); return; }
                             response.aggregations["properties.vejnavn"].buckets.forEach(function (hit) {
                                 var str = hit.key;
                                 hit["properties.postnrnavn"].buckets.forEach(function (n) {
@@ -537,6 +556,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                 gids[type1] = [];
                                 ca();
                             } else {
+                                sortByPrefix(names, rawQuery);
                                 cb(names);
                             }
 
@@ -552,6 +572,9 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                 gids[type1] = [];
                                 ca();
                             } else {
+                                // Sort by street name prefix from the original query
+                                const streetPrefix = scoreQuery.split(',')[0].replace(/\s*\d+\w?\s*/g, ' ').trim();
+                                sortByPrefix(names, streetPrefix);
                                 cb(names);
                             }
                         }
@@ -566,9 +589,13 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
             header: '<h2 class="typeahead-heading">Matrikel</h2>'
         },
         source: function (query, cb) {
+            query = query.trim().replace(/\s+/g, ' ');
             var names = [];
             type2 = (query.match(/\d+/g) != null) ? "jordstykke" : "ejerlav";
-            if (!onlyAddress) {
+            if (onlyAddress) {
+                cb([]);
+                return;
+            }
                 (function ca() {
 
                     switch (type2) {
@@ -582,7 +609,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                         "must": {
                                             "query_string": {
                                                 "default_field": "properties.string1",
-                                                "query": query.toLowerCase(),
+                                                "query": accentVariants(query.toLowerCase()),
                                                 "default_operator": "AND"
                                             }
                                         },
@@ -622,7 +649,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                         "must": {
                                             "query_string": {
                                                 "default_field": "properties.string1",
-                                                "query": query.toLowerCase(),
+                                                "query": accentVariants(query.toLowerCase()),
                                                 "default_operator": "AND"
                                             }
                                         },
@@ -665,10 +692,10 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                     })
                         .then(response => response.json())
                         .then(response => {
-                            if (response.hits === undefined) return;
+                            if (response.hits === undefined) { cb([]); return; }
                             if (type2 === "ejerlav") {
-                                if (response.aggregations === undefined) return;
-                                if (response.aggregations["properties.ejerlavsnavn"] === undefined) return;
+                                if (response.aggregations === undefined) { cb([]); return; }
+                                if (response.aggregations["properties.ejerlavsnavn"] === undefined) { cb([]); return; }
                                 response.aggregations["properties.ejerlavsnavn"].buckets.forEach(function (hit) {
                                     names.push({value: hit.key});
                                 });
@@ -690,7 +717,6 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
 
                         })
                 })();
-            }
         }
     }];
 

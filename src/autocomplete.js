@@ -10,6 +10,8 @@ export default class Autocomplete {
         this.input.setAttribute('autocomplete', 'off');
 
         this.selectedIndex = -1;
+        this._debounceTimer = null;
+        this._searchId = 0;
 
         this.input.addEventListener('input', () => {
             const query = this.input.value;
@@ -18,7 +20,8 @@ export default class Autocomplete {
                 this.hide();
                 return;
             }
-            this.search(query);
+            clearTimeout(this._debounceTimer);
+            this._debounceTimer = setTimeout(() => this.search(query), 150);
         });
 
         this.input.addEventListener('keydown', (e) => {
@@ -60,16 +63,24 @@ export default class Autocomplete {
     }
 
     search(query) {
+        const id = ++this._searchId;
         this.dropdown.innerHTML = '';
+        let pending = this.datasets.length;
         this.datasets.forEach(dataset => {
             dataset.source(query, (results) => {
+                if (id !== this._searchId) return; // stale response, discard
                 if (results && results.length > 0) {
                     this.renderDataset(dataset, results, query);
                 }
-                if (this.dropdown.children.length > 0) {
-                    this.show();
-                } else {
-                    this.hide();
+                pending--;
+                if (pending === 0) {
+                    if (this.dropdown.querySelectorAll('.tt-suggestion').length > 0) {
+                        this.dropdown.querySelector('.tt-no-results')?.remove();
+                        this.show();
+                    } else {
+                        this.dropdown.innerHTML = '<div class="tt-no-results"><p>Ingen resultater</p></div>';
+                        this.show();
+                    }
                 }
             });
         });
