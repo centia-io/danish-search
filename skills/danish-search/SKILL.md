@@ -54,7 +54,7 @@ const inputEl = danish({
     host: "https://dk.gc2.io",     // GC2 host (default)
     db: "dk",                      // GC2 database (default)
     onlyAddress: false,            // true = hide matrikel results
-    komKode: "*",                  // municipality filter: "*", "0101", or ["0101","0147"]
+    komKode: "*",                  // municipality filter: "*", "101", or ["101","147"]
     size: 20,                      // max results per query
     onSelect({ type, gid, value, searchType }) {
         // Called when a final result is selected
