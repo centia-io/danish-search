@@ -240,7 +240,11 @@ else if (normalizedDoc.startsWith(normalizedQuery)) {
 return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                         `;
 
-                let safeQuery = accentVariants(hasComma ? normalizeAddressQuery(query) : query);
+                let baseQuery = hasComma ? normalizeAddressQuery(query) : query;
+                let cleanQuery = baseQuery.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+                let safeQuery = accentVariants(cleanQuery);
+                // For vejnavn searches, also strip postcodes — aggregation handles city grouping
+                let vejnavnQuery = accentVariants(cleanQuery.replace(/\b\d{4}\b/g, '').replace(/\s+/g, ' ').trim());
                 let scoreQuery = hasComma ? normalizeAddressQuery(rawQuery) : rawQuery;
                 switch (type1) {
                     case "vejnavn,bynavn":
@@ -255,7 +259,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                             "must": {
                                                 "query_string": {
                                                     "default_field": "properties.string2",
-                                                    "query": safeQuery,
+                                                    "query": vejnavnQuery,
                                                     "default_operator": "AND"
                                                 }
                                             },
@@ -325,7 +329,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                             "must": {
                                                 "query_string": {
                                                     "default_field": "properties.string3",
-                                                    "query": safeQuery,
+                                                    "query": vejnavnQuery,
                                                     "default_operator": "AND"
                                                 }
                                             },
@@ -390,7 +394,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
                                             "must": {
                                                 "query_string": {
                                                     "default_field": "properties.string1",
-                                                    "query": safeQuery,
+                                                    "query": vejnavnQuery,
                                                     "default_operator": "AND"
                                                 }
                                             },
