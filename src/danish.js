@@ -711,7 +711,7 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
         return await sql.postSqlNoToken(db, {
             q: `SELECT *
                 FROM ${table}
-                WHERE id = '${gid}'`, srs: 4326
+                WHERE ${resultType === "adresse" ? "id" : "gid"} = '${gid}'`, srs: 4326, output_format: "geojson"
         });
     }
 
@@ -723,13 +723,13 @@ return baseScore + boundaryBonus + letterSuffixBonus + prefixBonus + houseBonus;
             const resultType = name === "adresse" ? "adresse" : "matrikel";
             const gid = name === "adresse" ? gids[type1][datum.value] : gids[type2][datum.value];
 
-            fetchFeature(resultType, gid).then(feature => {
+            fetchFeature(resultType, gid).then(data => {
                 const detail = {
                     type: resultType,
                     gid: gid,
                     value: datum.value,
                     searchType: name === "adresse" ? type1 : type2,
-                    feature: feature,
+                    feature: data.features[0],
                 };
 
                 // Dispatch event for external listeners

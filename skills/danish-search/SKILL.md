@@ -40,7 +40,7 @@ pnpm add @centia-io/danish-search
 ## Hard rules
 
 - Do not add jQuery, Bootstrap, or other framework dependencies.
-- Do not perform spatial/SQL queries inside the component — emit data and let the consuming app query Centia.
+- Do not perform spatial/SQL queries inside the component — emit data and let the consuming app query Centia.io.
 - Do not hardcode host or database — always pass via options.
 
 ## Initialization
@@ -80,10 +80,11 @@ Returns the input `HTMLElement`.
 
 ```ts
 {
-    type: "adresse" | "matrikel",   // Which dataset the result came from
+    type: "adresse" | "matrikel",    // Which dataset the result came from
     gid: string,                     // Unique ID (DAR id or matrikel gid)
     value: string,                   // Display string shown to user
-    searchType: string               // Internal search phase (adresse, jordstykke, etc.)
+    searchType: string,              // Internal search phase (adresse, jordstykke, etc.)
+    feature: GeoJSON.Feature         // The full GeoJSON feature of a adresse or matrikel
 }
 ```
 
@@ -102,64 +103,57 @@ inputEl.addEventListener("search:select", (e) => {
 
 ## Integrating with Centia SDK
 
-After receiving a selection, use the GID to query Centia for spatial data.
+The `feature` in the callback is a full GeoJSON Feature (EPSG:4326) with the
+geometry of the selected address or matrikel parcel. Use it directly for spatial
+queries against your own data via `ST_Intersects`.
 
-### Address → geometry via SQL
+### Find rows in your own table that intersect the selected feature
 
 ```js
 import danish from "@centia-io/danish-search";
 import { Sql } from "./baas/client.js";
 
 danish({
-    onSelect: async ({ type, gid }) => {
-        if (type === "adresse") {
-            const res = await Sql.exec(`
-                SELECT id, husnr, postnr, kommunekode,
-                       ST_AsGeoJSON(ST_Transform(the_geom, 4326)) AS geojson
-                FROM dar.adgangsadresser
-                WHERE id = '${gid}'
-            `);
-            console.log(res.data);
-        }
+    onSelect: async ({ feature }) => {
+        const geojson = JSON.stringify(feature.geometry);
+        const res = await Sql.exec(`
+            SELECT *
+            FROM my_schema.my_table
+            WHERE ST_Intersects(
+                the_geom,
+                ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${geojson}'), 4326), 25832)
+            )
+        `);
+        console.log(res.data);
     }
 });
 ```
 
-### Address → matrikel property via spatial intersection
+### Zoom a map to the selected feature
 
 ```js
 danish({
-    onSelect: async ({ type, gid }) => {
-        if (type === "adresse") {
-            const res = await Sql.exec(`
-                SELECT sfe_ejendomsnummer,
-                       ST_AsGeoJSON(ST_Transform(ST_Multi(ST_Union(the_geom)), 4326)) AS geojson
-                FROM matrikel.jordstykke
-                WHERE sfe_ejendomsnummer = (
-                    SELECT sfe_ejendomsnummer
-                    FROM matrikel.jordstykke
-                    WHERE the_geom && (SELECT ST_Transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id = '${gid}')
-                      AND ST_Intersects(the_geom, (SELECT ST_Transform(the_geom, 25832) FROM dar.adgangsadresser WHERE id = '${gid}'))
-                )
-                GROUP BY sfe_ejendomsnummer
-            `);
-            console.log(res.data);
-        }
+    onSelect: ({ feature }) => {
+        // Works with any map library that accepts GeoJSON (Leaflet, MapLibre, OpenLayers, etc.)
+        map.fitBounds(L.geoJSON(feature).getBounds());
     }
 });
 ```
 
-### Matrikel → geometry
+### Aggregate your data within a selected matrikel parcel
 
 ```js
 danish({
-    onSelect: async ({ type, gid }) => {
+    onSelect: async ({ type, feature }) => {
         if (type === "matrikel") {
+            const geojson = JSON.stringify(feature.geometry);
             const res = await Sql.exec(`
-                SELECT gid, matrikelnummer, ejerlavsnavn,
-                       ST_AsGeoJSON(ST_Transform(the_geom, 4326)) AS geojson
-                FROM matrikel.jordstykke
-                WHERE gid = '${gid}'
+                SELECT count(*) AS cnt, sum(areal) AS total_areal
+                FROM my_schema.bygninger
+                WHERE ST_Intersects(
+                    the_geom,
+                    ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${geojson}'), 4326), 25832)
+                )
             `);
             console.log(res.data);
         }
@@ -167,22 +161,21 @@ danish({
 });
 ```
 
-### Matrikel → full property (SFE)
+### Use the feature properties directly
+
+The `feature.properties` object contains all attributes from the source dataset
+(DAR or matrikel). No extra query is needed for basic attribute display:
 
 ```js
 danish({
-    onSelect: async ({ type, gid }) => {
+    onSelect: ({ type, feature }) => {
+        if (type === "adresse") {
+            const { postnr, postnrnavn, kommunekode } = feature.properties;
+            console.log(`${postnr} ${postnrnavn}, kommune ${kommunekode}`);
+        }
         if (type === "matrikel") {
-            const res = await Sql.exec(`
-                SELECT sfe_ejendomsnummer,
-                       ST_AsGeoJSON(ST_Transform(ST_Multi(ST_Union(the_geom)), 4326)) AS geojson
-                FROM matrikel.jordstykke
-                WHERE sfe_ejendomsnummer = (
-                    SELECT sfe_ejendomsnummer FROM matrikel.jordstykke WHERE gid = '${gid}'
-                )
-                GROUP BY sfe_ejendomsnummer
-            `);
-            console.log(res.data);
+            const { matrikelnummer, ejerlavsnavn } = feature.properties;
+            console.log(`${ejerlavsnavn} ${matrikelnummer}`);
         }
     }
 });
