@@ -3,7 +3,7 @@ name: danish-search
 description: Danish address and cadastral (matrikel) search component for Centia apps. Covers installation, initialization, option configuration, result handling, and integration with Centia SDK for spatial queries.
 ---
 
-# Danish Search Component — `@centia-io/danish`
+/# Danish Search Component — `@centia-io/danish-search`
 
 Use this skill when building Centia apps that need Danish address or cadastral search.
 
@@ -17,15 +17,15 @@ cascading: street → address, ejerlav → jordstykke.
 
 | | |
 |---|---|
-| **npm** | `@centia-io/danish` |
-| **Entry (ESM)** | `dist/danish.mjs` |
-| **Entry (CJS)** | `dist/danish.cjs` |
+| **npm** | `@centia-io/danish-search` |
+| **Entry (ESM)** | `dist/danish-search.mjs` |
+| **Entry (CJS)** | `dist/danish-search.cjs` |
 | **Stylesheet** | `dist/style.css` |
 
 ## Installation
 
 ```bash
-pnpm add @centia-io/danish
+pnpm add @centia-io/danish-search
 ```
 
 ## Source files (development)
@@ -46,8 +46,8 @@ pnpm add @centia-io/danish
 ## Initialization
 
 ```js
-import danish from "@centia-io/danish";
-import "@centia-io/danish/style.css";
+import danish from "@centia-io/danish-search";
+import "@centia-io/danish-search/style.css";
 
 const inputEl = danish({
     el: ".custom-search",          // CSS selector for input element (default: ".custom-search")
@@ -90,7 +90,7 @@ Returns the input `HTMLElement`.
 ## Listening via event instead of callback
 
 ```js
-import danish from "@centia-io/danish";
+import danish from "@centia-io/danish-search";
 
 const inputEl = danish({ el: "#my-input" });
 
@@ -107,7 +107,7 @@ After receiving a selection, use the GID to query Centia for spatial data.
 ### Address → geometry via SQL
 
 ```js
-import danish from "@centia-io/danish";
+import danish from "@centia-io/danish-search";
 import { Sql } from "./baas/client.js";
 
 danish({
@@ -214,7 +214,7 @@ The component needs an `<input>` element matching the `el` selector:
 <input class="custom-search" type="text" placeholder="Søg adresse eller matrikel...">
 ```
 
-Import `@centia-io/danish/style.css` for dropdown styling, or provide your own styles for these classes:
+Import `@centia-io/danish-search/style.css` for dropdown styling, or provide your own styles for these classes:
 
 - `.tt-dropdown-menu` — dropdown container
 - `.tt-suggestions` — suggestions wrapper
