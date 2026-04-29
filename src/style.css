@@ -5,7 +5,7 @@
 }
 
 .search-container {
-    display: flex;
+    /*display: flex;*/
     position: relative;
 }
 
@@ -77,6 +77,16 @@
 }
 
 .tt-suggestion p {
+    margin: 0;
+}
+
+.tt-no-results {
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #999;
+}
+
+.tt-no-results p {
     margin: 0;
 }
 
