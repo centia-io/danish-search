@@ -3,7 +3,7 @@ name: danish-search
 description: Danish address and cadastral (matrikel) search component for Centia apps. Covers installation, initialization, option configuration, result handling, and integration with Centia SDK for spatial queries.
 ---
 
-/# Danish Search Component — `@centia-io/danish-search`
+# Danish Search Component — `@centia-io/danish-search`
 
 Use this skill when building Centia.io apps that need Danish address or cadastral search.
 
