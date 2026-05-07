@@ -123,7 +123,7 @@ danish({
                 WHERE ST_Intersects(
                     the_geom,
                     ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326), 25832)
-            )`,
+                )`,
             params: [{"geojson": feature.geometry}]
         });
         console.log(res.data);
