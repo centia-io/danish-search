@@ -1,3 +1,9 @@
+/*
+ * @author     Martin Høgh
+ * @copyright  2013-2026 MapCentia ApS
+ * @license    MIT (see LICENSE file in the project root)
+ */
+
 export default class Autocomplete {
     constructor(input, options, ...datasets) {
         this.input = typeof input === 'string' ? document.querySelector(input) : input;

@@ -1,3 +1,9 @@
+/*
+ * @author     Martin Høgh
+ * @copyright  2013-2026 MapCentia ApS
+ * @license    MIT (see LICENSE file in the project root)
+ */
+
 import './style.css'
 import danish from "./danish.js"
 
