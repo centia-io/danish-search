@@ -111,19 +111,21 @@ queries against your own data via `ST_Intersects`.
 
 ```js
 import danish from "@centia-io/danish-search";
-import { Sql } from "./baas/client.js";
+import { Sql } from "@centia-io/sdk";
+
+const sql = new Sql();
 
 danish({
     onSelect: async ({ feature }) => {
-        const geojson = JSON.stringify(feature.geometry);
-        const res = await Sql.exec(`
-            SELECT *
-            FROM my_schema.my_table
-            WHERE ST_Intersects(
-                the_geom,
-                ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON('${geojson}'), 4326), 25832)
-            )
-        `);
+        const res = await sql.exec({
+            q: `SELECT *
+                FROM my_schema.my_table
+                WHERE ST_Intersects(
+                    the_geom,
+                    ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(:geojson), 4326), 25832)
+            )`,
+            params: [{"geojson": feature.geometry}]
+        });
         console.log(res.data);
     }
 });
